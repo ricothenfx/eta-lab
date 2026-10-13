@@ -73,9 +73,9 @@ export interface ScenarioConfig {
 }
 
 export const PRESETS = {
-  quiet: { label: 'Quiet evening', orderCount: 50, courierCount: 24 },
-  rush: { label: 'Dinner rush', orderCount: 90, courierCount: 24 },
-  flash: { label: 'Flash-sale surge', orderCount: 140, courierCount: 24 },
+  quiet: { label: 'Quiet evening', orderCount: 50, courierCount: 16 },
+  rush: { label: 'Dinner rush', orderCount: 100, courierCount: 14 },
+  flash: { label: 'Flash-sale surge', orderCount: 160, courierCount: 14 },
 } as const;
 
 export type PresetKey = keyof typeof PRESETS;
@@ -133,7 +133,7 @@ export function generateScenario(cfg: ScenarioConfig): Scenario {
       tPlacedMin: startMin + tPlacedMin,
       resto,
       cust,
-      noise: { leg1: Math.max(0.8, normal(rng, 1.12, 0.18)), leg2: Math.max(0.8, normal(rng, 1.12, 0.18)) },
+      noise: { leg1: Math.max(0.75, normal(rng, 1.0, 0.12)), leg2: Math.max(0.75, normal(rng, 1.0, 0.12)) },
       prepActualMin: Math.max(3, normal(rng, resto.prepMeanMin, resto.prepSdMin)),
     };
   });

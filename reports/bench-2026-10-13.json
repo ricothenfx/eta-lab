@@ -1,0 +1,148 @@
+{
+  "runs": [
+    {
+      "mode": "before",
+      "seed": 7,
+      "preset": "rush",
+      "orderCount": 46,
+      "provider": "recorded",
+      "metrics": {
+        "n": 46,
+        "pickupP50Min": 15.962947672116307,
+        "pickupP95Min": 33.85036627586494,
+        "deliveryP50Min": 22.03016991541982,
+        "deliveryP95Min": 39.569484319728105,
+        "etaMaeMin": 3.9060147243125214,
+        "etaP95AbsMin": 8.746764419449718,
+        "latePct": 45.65217391304348,
+        "foodWaitP50Min": 12.908434048290502,
+        "deadheadKm": 255.41969999999995,
+        "deadheadPerOrderKm": 5.5526021739130424
+      },
+      "simEndMin": 106.0547114109615,
+      "liveCalls": 86,
+      "degraded": false,
+      "ranAt": "2026-10-13T08:44:52.972Z"
+    },
+    {
+      "mode": "after",
+      "seed": 7,
+      "preset": "rush",
+      "orderCount": 46,
+      "provider": "recorded",
+      "metrics": {
+        "n": 46,
+        "pickupP50Min": 12.456562188086721,
+        "pickupP95Min": 22.1946338239568,
+        "deliveryP50Min": 19.23776148662127,
+        "deliveryP95Min": 25.768056757474575,
+        "etaMaeMin": 2.3415499246184175,
+        "etaP95AbsMin": 6.505791383010028,
+        "latePct": 21.73913043478261,
+        "foodWaitP50Min": 9.45797062039101,
+        "deadheadKm": 160.26149999999998,
+        "deadheadPerOrderKm": 3.4839456521739125
+      },
+      "simEndMin": 104.22773789243143,
+      "liveCalls": 157,
+      "degraded": false,
+      "ranAt": "2026-10-13T08:45:05.256Z"
+    },
+    {
+      "mode": "before",
+      "seed": 11,
+      "preset": "rush",
+      "orderCount": 50,
+      "provider": "recorded",
+      "metrics": {
+        "n": 50,
+        "pickupP50Min": 16.983166827477078,
+        "pickupP95Min": 32.24148840327944,
+        "deliveryP50Min": 22.28943187363192,
+        "deliveryP95Min": 36.91122182398885,
+        "etaMaeMin": 5.040494792667203,
+        "etaP95AbsMin": 10.289045988682304,
+        "latePct": 48,
+        "foodWaitP50Min": 13.717434620369179,
+        "deadheadKm": 315.5856,
+        "deadheadPerOrderKm": 6.311712
+      },
+      "simEndMin": 109.41840399991919,
+      "liveCalls": 253,
+      "degraded": false,
+      "ranAt": "2026-10-13T08:45:22.424Z"
+    },
+    {
+      "mode": "after",
+      "seed": 11,
+      "preset": "rush",
+      "orderCount": 50,
+      "provider": "recorded",
+      "metrics": {
+        "n": 50,
+        "pickupP50Min": 14.851953419245152,
+        "pickupP95Min": 25.270863034595877,
+        "deliveryP50Min": 20.718136285474223,
+        "deliveryP95Min": 29.185314058756553,
+        "etaMaeMin": 3.1118349258728184,
+        "etaP95AbsMin": 7.1525144643506025,
+        "latePct": 28.000000000000004,
+        "foodWaitP50Min": 10.885718071655361,
+        "deadheadKm": 225.62380000000013,
+        "deadheadPerOrderKm": 4.512476000000003
+      },
+      "simEndMin": 109.41840399991919,
+      "liveCalls": 335,
+      "degraded": false,
+      "ranAt": "2026-10-13T08:45:36.161Z"
+    },
+    {
+      "mode": "before",
+      "seed": 42,
+      "preset": "rush",
+      "orderCount": 57,
+      "provider": "recorded",
+      "metrics": {
+        "n": 57,
+        "pickupP50Min": 23.44308701154567,
+        "pickupP95Min": 42.1745335377935,
+        "deliveryP50Min": 28.852487210777042,
+        "deliveryP95Min": 50.57405676756155,
+        "etaMaeMin": 6.955435442714177,
+        "etaP95AbsMin": 20.056936029016853,
+        "latePct": 63.1578947368421,
+        "foodWaitP50Min": 12.094048224993415,
+        "deadheadKm": 361.44570000000004,
+        "deadheadPerOrderKm": 6.341152631578948
+      },
+      "simEndMin": 119.1936281152818,
+      "liveCalls": 440,
+      "degraded": false,
+      "ranAt": "2026-10-13T08:45:52.569Z"
+    },
+    {
+      "mode": "after",
+      "seed": 42,
+      "preset": "rush",
+      "orderCount": 57,
+      "provider": "recorded",
+      "metrics": {
+        "n": 57,
+        "pickupP50Min": 18.674734016602955,
+        "pickupP95Min": 29.87920688700168,
+        "deliveryP50Min": 23.00732848348833,
+        "deliveryP95Min": 36.3449855812424,
+        "etaMaeMin": 2.5210919749642287,
+        "etaP95AbsMin": 5.893116383206632,
+        "latePct": 17.543859649122805,
+        "foodWaitP50Min": 9.906302404682243,
+        "deadheadKm": 239.74040000000008,
+        "deadheadPerOrderKm": 4.205971929824563
+      },
+      "simEndMin": 105.03266422419038,
+      "liveCalls": 527,
+      "degraded": false,
+      "ranAt": "2026-10-13T08:46:06.771Z"
+    }
+  ]
+}

@@ -138,17 +138,18 @@ export async function runSimulation(
     // Promise shown to the customer at placement time.
     let promised: number;
     if (mode === 'before') {
-      // Naive apps: straight line at a constant speed, flat prep guess, and
-      // the pickup leg + dispatch wait are ignored entirely.
-      promised = order.tPlacedMin + (haversineKm(order.resto.pos, order.cust) / NAIVE_KMH) * 60 + NAIVE_PREP_MIN;
+      // Naive ETA: straight lines at a constant speed for BOTH legs, flat prep
+      // guess. No road knowledge, no dispatch wait, no prep variance.
+      const crowPick = haversineKm(chosen.pos, order.resto.pos);
+      const crowFood = haversineKm(order.resto.pos, order.cust);
+      promised = order.tPlacedMin + ((crowPick + crowFood) / NAIVE_KMH) * 60 + NAIVE_PREP_MIN;
     } else {
-      promised =
-        order.tPlacedMin +
-        dispatchLag +
-        leg1.durationS / 60 +
-        order.resto.prepMeanMin +
-        leg2.durationS / 60 +
-        SMART_BUFFER_MIN;
+      // Smart ETA: kitchen starts immediately, the pickup ride overlaps with
+      // cooking (whoever comes later wins), delivery ride after pickup, plus
+      // a small operational buffer.
+      const estArrival = startAt + leg1.durationS / 60;
+      const estPickup = Math.max(estArrival, order.tPlacedMin + order.resto.prepMeanMin);
+      promised = estPickup + leg2.durationS / 60 + SMART_BUFFER_MIN;
     }
 
     records.push({
