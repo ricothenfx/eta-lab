@@ -1,0 +1,12 @@
+<!DOCTYPE html>
+<html><body><pre id="out">running…</pre><script>
+const out = document.getElementById('out');
+function info(gl) {
+  if (!gl) return 'null';
+  const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+  return (dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : 'hidden') + ' | maxTex=' + gl.getParameter(gl.MAX_TEXTURE_SIZE);
+}
+const gl2 = document.createElement('canvas').getContext('webgl2');
+const gl1 = document.createElement('canvas').getContext('webgl');
+out.textContent = 'webgl2: ' + (gl2 ? 'YES — ' + info(gl2) : 'NO') + '\nwebgl1: ' + (gl1 ? 'YES — ' + info(gl1) : 'NO');
+</script></body></html>
