@@ -1,0 +1,23 @@
+@import 'tailwindcss';
+
+:root {
+  --bg: #f7f7f8;
+  --panel: #ffffff;
+  --ink: #17202a;
+  --muted: #5b6672;
+  --line: #e3e7eb;
+  --before: #b3261e;
+  --after: #1d7a3e;
+  --accent: #1a4fd6;
+}
+
+html,
+body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.maplibregl-ctrl-attrib {
+  font-size: 10px;
+}
