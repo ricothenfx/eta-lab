@@ -27,6 +27,14 @@ async function waitForResults(page: Page, timeoutMs = 240_000): Promise<void> {
   throw new Error('results table did not appear in time');
 }
 
+/** Basemap tiles (openfreemap) can be slow — wait until every live map has its tiles. */
+async function waitForTiles(page: Page, timeoutMs = 90_000): Promise<void> {
+  await page.waitForFunction(
+    'window.__etaMaps != null && window.__etaMaps.length > 0 && window.__etaMaps.every((m) => m.areTilesLoaded())',
+    { timeout: timeoutMs },
+  );
+}
+
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const browser = await puppeteer.launch({
@@ -56,6 +64,7 @@ async function main() {
     if (!map) throw new Error('map instance not on window');
     map.once('idle');
   });
+  await waitForTiles(page);
   await sleep(800);
   await page.screenshot({ path: path.join(OUT, '01-map-initial.png') });
   // NOTE: readPixels on a composited WebGL canvas is always transparent, so we
@@ -81,6 +90,7 @@ async function main() {
   console.log('5. waiting for both runs to finish…');
   await waitForResults(page);
   await sleep(1200);
+  await waitForTiles(page).catch(() => {}); // tiles may be rate-limited in BOTH view; screenshot anyway
   await page.screenshot({ path: path.join(OUT, '02-after-results.png') });
 
   console.log('6. switch to BEFORE view and replay end');
@@ -96,6 +106,7 @@ async function main() {
     range.dispatchEvent(new Event('input', { bubbles: true }));
   });
   await sleep(700);
+  await waitForTiles(page).catch(() => {});
   await page.screenshot({ path: path.join(OUT, '03-before-replay.png') });
 
   const summary = await page.evaluate(() => {

@@ -22,7 +22,7 @@ export default function Home() {
   const [scenario, setScenario] = useState<Scenario | null>(() =>
     generateScenario({ seed: 7, ...PRESETS.rush }),
   );
-  const [mode, setMode] = useState<Mode>('before');
+  const [view, setView] = useState<'before' | 'after' | 'both'>('before');
   const [results, setResults] = useState<Partial<Record<Mode, RunResult>>>({});
   const [resultsSig, setResultsSig] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
@@ -35,7 +35,8 @@ export default function Home() {
   const [aiBusy, setAiBusy] = useState(false);
 
   const providerRef = useRef<OsrmProvider | null>(null);
-  const mapRef = useRef<MapViewHandle>(null);
+  const beforeMapRef = useRef<MapViewHandle>(null);
+  const afterMapRef = useRef<MapViewHandle>(null);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
   const timeRef = useRef(0);
@@ -43,13 +44,25 @@ export default function Home() {
   const setVirtualTime = useCallback((t: number) => {
     timeRef.current = t;
     setTime(t);
-    mapRef.current?.setTime(t);
+    beforeMapRef.current?.setTime(t);
+    afterMapRef.current?.setTime(t);
   }, []);
+
+  const before = results.before;
+  const after = results.after;
+  const activeResults = useMemo(() => {
+    if (view === 'before') return before ? [before] : [];
+    if (view === 'after') return after ? [after] : [];
+    return [before, after].filter((r): r is RunResult => r != null);
+  }, [view, before, after]);
+  const simEndMin = activeResults.length
+    ? Math.max(...activeResults.map((r) => r.result.simEndMin))
+    : 0;
 
   // animation loop
   useEffect(() => {
-    if (!playing || !results[mode]) return;
-    const simEnd = results[mode]!.result.simEndMin;
+    if (!playing || !activeResults.length) return;
+    const simEnd = simEndMin;
     const step = (ts: number) => {
       if (lastTickRef.current == null) lastTickRef.current = ts;
       const dt = ((ts - lastTickRef.current) / 1000) * (speed / 60); // virtual min
@@ -67,7 +80,7 @@ export default function Home() {
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       lastTickRef.current = null;
     };
-  }, [playing, speed, mode, results, setVirtualTime]);
+  }, [playing, speed, activeResults, simEndMin, setVirtualTime]);
 
   const getProvider = useCallback(async () => {
     if (!providerRef.current) {
@@ -87,7 +100,7 @@ export default function Home() {
     setPlaying(false);
     setAiText(null);
     setResults({});
-    setMode('before');
+    setView('before');
     setVirtualTime(0);
     try {
       const provider = await getProvider();
@@ -108,7 +121,7 @@ export default function Home() {
       setResultsSig(`${scenario.seed}:${scenario.orderCount}`);
       setDegraded(provider.degraded);
       setProgress('Done — replay the rush on the map or compare the numbers.');
-      setMode('after');
+      setView('both');
     } catch (e) {
       setProgress(`Failed: ${e instanceof Error ? e.message : String(e)}`);
     } finally {
@@ -127,16 +140,13 @@ export default function Home() {
     setProgress('');
     setAiText(null);
     setVirtualTime(0);
-    setMode('before');
+    setView('before');
   }, [setVirtualTime]);
 
-  const before = results.before;
-  const after = results.after;
   const deltas = useMemo(
     () => (before && after ? compareMetrics(before.metrics, after.metrics) : []),
     [before, after],
   );
-  const active = mode === 'before' ? before : after;
   const currentSig = scenario ? `${scenario.seed}:${scenario.orderCount}` : '';
   const dirty = Boolean(before && resultsSig && resultsSig !== currentSig);
 
@@ -195,8 +205,16 @@ export default function Home() {
         <div>
           <h1 className="text-base font-semibold tracking-tight">
             eta-lab{' '}
-            <span className={`ml-1 rounded px-2 py-0.5 text-xs font-bold text-white ${mode === 'before' ? 'bg-[var(--before)]' : 'bg-[var(--after)]'}`}>
-              {mode === 'before' ? 'BEFORE — naive' : 'AFTER — smart'}
+            <span
+              className={`ml-1 rounded px-2 py-0.5 text-xs font-bold text-white ${
+                view === 'both'
+                  ? 'bg-gradient-to-r from-[var(--before)] to-[var(--after)]'
+                  : view === 'before'
+                    ? 'bg-[var(--before)]'
+                    : 'bg-[var(--after)]'
+              }`}
+            >
+              {view === 'both' ? 'BEFORE vs AFTER' : view === 'before' ? 'BEFORE — naive' : 'AFTER — smart'}
             </span>
           </h1>
           <p className="text-xs text-[var(--muted)]">
@@ -223,7 +241,27 @@ export default function Home() {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <MapView ref={mapRef} scenario={scenario} result={active?.result ?? null} mode={mode} />
+        {view === 'both' ? (
+          <>
+            <MapView
+              ref={beforeMapRef}
+              scenario={scenario}
+              result={before?.result ?? null}
+              mode="before"
+              time={time}
+              className="min-h-0 flex-1 border-r border-[var(--line)]"
+            />
+            <MapView ref={afterMapRef} scenario={scenario} result={after?.result ?? null} mode="after" time={time} />
+          </>
+        ) : (
+          <MapView
+            ref={view === 'before' ? beforeMapRef : afterMapRef}
+            scenario={scenario}
+            result={(view === 'before' ? before : after)?.result ?? null}
+            mode={view}
+            time={time}
+          />
+        )}
 
         <aside className="flex w-[350px] shrink-0 flex-col gap-3 overflow-y-auto border-l border-[var(--line)] bg-[var(--panel)] p-3 text-[13px]">
           {/* scenario */}
@@ -284,7 +322,7 @@ export default function Home() {
           </section>
 
           {/* playback */}
-          {active && (
+          {activeResults.length > 0 && (
             <section className="rounded-lg border border-[var(--line)] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Replay</h2>
@@ -322,7 +360,7 @@ export default function Home() {
                 type="range"
                 className="mt-2 w-full"
                 min={0}
-                max={active.result.simEndMin}
+                max={simEndMin}
                 step={0.1}
                 value={time}
                 onChange={(e) => {
@@ -330,9 +368,10 @@ export default function Home() {
                   setVirtualTime(Number(e.target.value));
                 }}
               />
-              <div className="mt-1 flex gap-3 text-xs text-[var(--muted)]">
-                <ModeTab m="before" mode={mode} setMode={setMode} label="BEFORE" />
-                <ModeTab m="after" mode={mode} setMode={setMode} label="AFTER" />
+              <div className="mt-1 flex gap-2 text-xs text-[var(--muted)]">
+                <ViewTab v="before" view={view} setView={setView} label="BEFORE" />
+                <ViewTab v="both" view={view} setView={setView} label="BOTH" />
+                <ViewTab v="after" view={view} setView={setView} label="AFTER" />
               </div>
             </section>
           )}
@@ -398,21 +437,21 @@ function isBetter(d: { pct: number; betterIsLower: boolean }): boolean {
   return d.betterIsLower ? d.pct < 0 : d.pct > 0;
 }
 
-function ModeTab({
-  m,
-  mode,
-  setMode,
+function ViewTab({
+  v,
+  view,
+  setView,
   label,
 }: {
-  m: Mode;
-  mode: Mode;
-  setMode: (m: Mode) => void;
+  v: 'before' | 'after' | 'both';
+  view: 'before' | 'after' | 'both';
+  setView: (v: 'before' | 'after' | 'both') => void;
   label: string;
 }) {
   return (
     <button
-      className={`rounded px-2 py-0.5 font-semibold ${mode === m ? 'bg-[var(--ink)] text-[var(--panel)]' : 'bg-[var(--chip)] text-[var(--muted)] hover:bg-[var(--hover)]'}`}
-      onClick={() => setMode(m)}
+      className={`rounded px-2 py-0.5 font-semibold ${view === v ? 'bg-[var(--ink)] text-[var(--panel)]' : 'bg-[var(--chip)] text-[var(--muted)] hover:bg-[var(--hover)]'}`}
+      onClick={() => setView(v)}
     >
       {label}
     </button>

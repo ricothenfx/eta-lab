@@ -17,6 +17,8 @@ interface Props {
   scenario: Scenario | null;
   result: SimResult | null;
   mode: 'before' | 'after';
+  time: number;
+  className?: string;
 }
 
 const ORDER_COLORS: Record<string, string> = {
@@ -39,12 +41,13 @@ function makeMap(container: HTMLElement): MapLibreMap {
 }
 
 export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
-  { scenario, result, mode },
+  { scenario, result, mode, time, className },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const popupRef = useRef<Popup | null>(null);
+  const fittedRef = useRef<Scenario | null>(null);
   const dataRef = useRef<{
     scenario: Scenario | null;
     result: SimResult | null;
@@ -53,6 +56,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
 
   dataRef.current.scenario = scenario;
   dataRef.current.result = result;
+  dataRef.current.time = time;
 
   function ensureSources(map: MapLibreMap) {
     if (map.getSource('restos')) return;
@@ -126,20 +130,44 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     return { type: 'FeatureCollection', features: [] };
   }
 
+  function fitScenario(map: MapLibreMap, sc: Scenario) {
+    const pts = [
+      ...sc.restaurants.map((r) => r.pos),
+      ...sc.orders.map((o) => o.cust),
+      ...sc.couriers.map((c) => c.home),
+    ];
+    const lons = pts.map((p) => p[0]);
+    const lats = pts.map((p) => p[1]);
+    fittedRef.current = sc;
+    map.fitBounds(
+      [
+        [Math.min(...lons), Math.min(...lats)],
+        [Math.max(...lons), Math.max(...lats)],
+      ],
+      { padding: 60, duration: 600, maxZoom: 13.5 },
+    );
+  }
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
     const map = makeMap(containerRef.current);
     mapRef.current = map;
     // exposed for the E2E test (scripts/e2e.ts)
-    (window as unknown as Record<string, unknown>).__etaMap = map;
+    const w = window as unknown as { __etaMap?: MapLibreMap; __etaMaps?: MapLibreMap[] };
+    w.__etaMap = map;
+    (w.__etaMaps ??= []).push(map);
     map.on('load', () => {
       ensureSources(map);
       refreshStatic();
+      const sc = dataRef.current.scenario;
+      if (sc && fittedRef.current !== sc) fitScenario(map, sc);
       refreshAt(dataRef.current.time);
     });
     return () => {
       popupRef.current?.remove();
       map.remove();
+      const w = window as unknown as { __etaMaps?: MapLibreMap[] };
+      w.__etaMaps = w.__etaMaps?.filter((m) => m !== map);
       mapRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,22 +179,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     if (!map || !map.isStyleLoaded()) return;
     if (map.getLayer('couriers-circle'))
       map.setPaintProperty('couriers-circle', 'circle-color', mode === 'before' ? '#b3261e' : '#1d7a3e');
-    if (scenario) {
-      const pts = [
-        ...scenario.restaurants.map((r) => r.pos),
-        ...scenario.orders.map((o) => o.cust),
-        ...scenario.couriers.map((c) => c.home),
-      ];
-      const lons = pts.map((p) => p[0]);
-      const lats = pts.map((p) => p[1]);
-      map.fitBounds(
-        [
-          [Math.min(...lons), Math.min(...lats)],
-          [Math.max(...lons), Math.max(...lats)],
-        ],
-        { padding: 60, duration: 600, maxZoom: 13.5 },
-      );
-    }
+    if (scenario && fittedRef.current !== scenario) fitScenario(map, scenario);
     refreshStatic();
     refreshAt(dataRef.current.time);
   }, [scenario, result, mode]);
@@ -271,7 +284,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     },
   }));
 
-  return <div ref={containerRef} className="min-h-0 flex-1" />;
+  return <div ref={containerRef} className={className ?? 'min-h-0 flex-1'} />;
 });
 
 function fmtClock(sc: Scenario, tMin: number): string {
