@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import type { Map as MapLibreMap } from 'maplibre-gl';
 import { MapView, type MapViewHandle } from '@/components/MapView';
 import ThemeToggle from '@/components/ThemeToggle';
 import { OsrmProvider, loadRecordedData, localStorageStore } from '@/lib/osrm';
@@ -15,6 +16,30 @@ interface RunResult {
 }
 
 const SPEEDS = [10, 30, 90, 180];
+
+const METRIC_TIPS: Record<string, string> = {
+  'Pickup wait p50': 'Median minutes from order placed to courier pickup — half of all orders were picked up faster than this.',
+  'Pickup wait p95': 'The slowest 5% of pickups took longer than this many minutes — the worst-wait tail.',
+  'Delivery p50': 'Median door-to-door time in minutes from order placed to food delivered.',
+  'Delivery p95': '95% of orders arrived within this many minutes — the worst-case tail.',
+  'ETA error (MAE)': 'Mean gap in minutes between the promised ETA and the actual arrival. Lower = more honest promises to customers.',
+  'Orders late vs promise': 'Share of orders that arrived after the promised ETA.',
+  'Deadhead km / order': 'Empty kilometres ridden per order just to reach the restaurant (no food, no customer aboard). Lower = less wasted driving.',
+};
+const DELTA_TIP =
+  'Percent change AFTER vs BEFORE. Green = improvement, red = regression — every metric here is better when lower.';
+const BEFORE_TIP =
+  'Naive dispatch baseline: nearest idle courier by crow-flies line, FIFO wait when all are busy, and an ETA promised from straight lines at a flat 25 km/h + 10 min prep guess.';
+const AFTER_TIP =
+  'Smart dispatch: courier chosen by real road travel time (busy couriers count too — soonest arrival wins), with an ETA built from road legs, kitchen prep mean and a small buffer.';
+const SEED_TIP =
+  'Same seed + same preset always generate the exact same orders, couriers and noise — every run is bit-for-bit reproducible.';
+const RESULTS_SEED_TIP =
+  'Every number in this table is reproducible: re-run with this seed and preset and you get identical results.';
+const CLOCK_TIP =
+  'Virtual time of day in the replay. The rush starts at 18:00 and playback runs faster than real time — see the ×speed selector.';
+const SPEED_TIP =
+  'Replay speed: simulated rush-minutes per real minute (×30 = the 90-minute rush in 3 real minutes).';
 
 export default function Home() {
   const [presetKey, setPresetKey] = useState<PresetKey>('rush');
@@ -81,6 +106,35 @@ export default function Home() {
       lastTickRef.current = null;
     };
   }, [playing, speed, activeResults, simEndMin, setVirtualTime]);
+
+  // In BOTH view, pan/zoom on one map is mirrored onto the other so the
+  // comparison stays apple-to-apple.
+  useEffect(() => {
+    if (view !== 'both') return;
+    const a = beforeMapRef.current?.getMap();
+    const b = afterMapRef.current?.getMap();
+    if (!a || !b) return;
+    let locked = false;
+    const wire = (src: MapLibreMap, dst: MapLibreMap) => () => {
+      if (locked) return;
+      locked = true;
+      dst.jumpTo({
+        center: src.getCenter(),
+        zoom: src.getZoom(),
+        bearing: src.getBearing(),
+        pitch: src.getPitch(),
+      });
+      locked = false;
+    };
+    const aToB = wire(a, b);
+    const bToA = wire(b, a);
+    a.on('move', aToB);
+    b.on('move', bToA);
+    return () => {
+      a.off('move', aToB);
+      b.off('move', bToA);
+    };
+  }, [view, before, after]);
 
   const getProvider = useCallback(async () => {
     if (!providerRef.current) {
@@ -284,7 +338,7 @@ export default function Home() {
             </label>
             <div className="flex items-center gap-2">
               <label className="flex-1">
-                <span className="text-[var(--muted)]">Seed (deterministic)</span>
+                <span className="tip tip-b text-[var(--muted)]" tabIndex={0} data-tip={SEED_TIP}>Seed (deterministic)</span>
                 <input
                   type="number"
                   className="mt-1 w-full rounded border border-[var(--line)] px-2 py-1"
@@ -326,7 +380,9 @@ export default function Home() {
             <section className="rounded-lg border border-[var(--line)] p-3">
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Replay</h2>
-                <span className="font-mono text-sm">{clockLabel}</span>
+                <span className="font-mono text-sm">
+                  <span className="tip" tabIndex={0} data-tip={CLOCK_TIP}>{clockLabel}</span>
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -344,17 +400,19 @@ export default function Home() {
                 >
                   ⏮
                 </button>
-                <select
-                  className="ml-auto rounded border border-[var(--line)] px-1 py-1"
-                  value={speed}
-                  onChange={(e) => setSpeed(Number(e.target.value))}
-                >
-                  {SPEEDS.map((s) => (
-                    <option key={s} value={s}>
-                      ×{s}
-                    </option>
-                  ))}
-                </select>
+                <span className="tip ml-auto" tabIndex={0} data-tip={SPEED_TIP}>
+                  <select
+                    className="rounded border border-[var(--line)] px-1 py-1"
+                    value={speed}
+                    onChange={(e) => setSpeed(Number(e.target.value))}
+                  >
+                    {SPEEDS.map((s) => (
+                      <option key={s} value={s}>
+                        ×{s}
+                      </option>
+                    ))}
+                  </select>
+                </span>
               </div>
               <input
                 type="range"
@@ -380,26 +438,41 @@ export default function Home() {
           {before && after && (
             <section className="rounded-lg border border-[var(--line)] p-3">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
-                Results — seed {scenario?.seed}
+                Results —{' '}
+                <span className="tip" tabIndex={0} data-tip={RESULTS_SEED_TIP}>seed {scenario?.seed}</span>
               </h2>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left text-[var(--muted)]">
                     <th className="py-1">metric</th>
-                    <th className="py-1 text-right text-[var(--before)]">BEFORE</th>
-                    <th className="py-1 text-right text-[var(--after)]">AFTER</th>
-                    <th className="py-1 text-right">Δ</th>
+                    <th className="py-1 text-right text-[var(--before)]">
+                      <span className="tip tip-r" tabIndex={0} data-tip={BEFORE_TIP}>BEFORE</span>
+                    </th>
+                    <th className="py-1 text-right text-[var(--after)]">
+                      <span className="tip tip-r" tabIndex={0} data-tip={AFTER_TIP}>AFTER</span>
+                    </th>
+                    <th className="py-1 text-right">
+                      <span className="tip tip-r" tabIndex={0} data-tip={DELTA_TIP}>Δ</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {deltas.map((d) => (
                     <tr key={d.label} className="border-t border-[var(--line)]">
-                      <td className="py-1">{d.label}</td>
-                      <td className="py-1 text-right font-mono">{d.before.toFixed(1)}</td>
-                      <td className="py-1 text-right font-mono">{d.after.toFixed(1)}</td>
+                      <td className="py-1">
+                        <span className="tip" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.label}</span>
+                      </td>
+                      <td className="py-1 text-right font-mono">
+                        <span className="tip tip-r" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.before.toFixed(1)}</span>
+                      </td>
+                      <td className="py-1 text-right font-mono">
+                        <span className="tip tip-r" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.after.toFixed(1)}</span>
+                      </td>
                       <td className={`py-1 text-right font-mono font-semibold ${isBetter(d) ? 'text-[var(--after)]' : 'text-[var(--before)]'}`}>
-                        {d.pct > 0 ? '+' : ''}
-                        {d.pct.toFixed(0)}%
+                        <span className="tip tip-r" tabIndex={0} data-tip={DELTA_TIP}>
+                          {d.pct > 0 ? '+' : ''}
+                          {d.pct.toFixed(0)}%
+                        </span>
                       </td>
                     </tr>
                   ))}

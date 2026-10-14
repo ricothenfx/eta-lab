@@ -11,6 +11,7 @@ export const BERLIN_CENTER: [number, number] = [13.405, 52.52];
 
 export interface MapViewHandle {
   setTime: (t: number) => void;
+  getMap: () => MapLibreMap | null;
 }
 
 interface Props {
@@ -27,6 +28,45 @@ const ORDER_COLORS: Record<string, string> = {
   onTheWay: '#8b3fd6',
   done: '#1d7a3e',
 };
+
+const COURIER_COLORS: Record<'before' | 'after', string> = {
+  before: '#b3261e',
+  after: '#1d7a3e',
+};
+
+const RESTO_ICON_SVG =
+  `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">` +
+  `<rect x="1" y="1" width="22" height="22" rx="6" fill="#d95f02" stroke="#ffffff" stroke-width="1.5"/>` +
+  `<path d="M8.2 5.4v3.9a1.9 1.9 0 0 0 3.8 0V5.4" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round"/>` +
+  `<path d="M10.1 11.2v7.4" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round"/>` +
+  `<path d="M16.8 5.4v13.2" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round"/>` +
+  `<path d="M16.8 5.4c-2.6 1.7-3.2 4.5-1.7 6.9l1.7 1.3" fill="none" stroke="#ffffff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>` +
+  `</svg>`;
+
+const courierIconSvg = (color: string): string =>
+  `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24">` +
+  `<path d="M12 1.6 21 6.8v10.4L12 22.4 3 17.2V6.8z" fill="${color}" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>` +
+  `<circle cx="7" cy="16.8" r="2" fill="none" stroke="#ffffff" stroke-width="1.6"/>` +
+  `<circle cx="17.2" cy="16.8" r="2" fill="none" stroke="#ffffff" stroke-width="1.6"/>` +
+  `<path d="M7 16.8h6.6l2.3-6.6" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>` +
+  `<path d="M14.2 10.2h4.4" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>` +
+  `<path d="M18.6 10.2l-1.4 6.6" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>` +
+  `</svg>`;
+
+const ICON_DEFS: Array<{ id: string; svg: string }> = [
+  { id: 'resto-icon', svg: RESTO_ICON_SVG },
+  { id: 'courier-before', svg: courierIconSvg(COURIER_COLORS.before) },
+  { id: 'courier-after', svg: courierIconSvg(COURIER_COLORS.after) },
+];
+
+function loadIcon(svg: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image(48, 48);
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('failed to decode icon svg'));
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+  });
+}
 
 function makeMap(container: HTMLElement): MapLibreMap {
   const map = new MapLibreMap({
@@ -58,8 +98,17 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
   dataRef.current.result = result;
   dataRef.current.time = time;
 
-  function ensureSources(map: MapLibreMap) {
+  async function ensureSources(map: MapLibreMap) {
     if (map.getSource('restos')) return;
+    await Promise.all(
+      ICON_DEFS.map(async ({ id, svg }) => {
+        try {
+          if (!map.hasImage(id)) map.addImage(id, await loadIcon(svg), { pixelRatio: 2 });
+        } catch {
+          // icon stays missing; text labels and circles still render
+        }
+      }),
+    );
     map.addSource('restos', { type: 'geojson', data: emptyFC() });
     map.addSource('orders', { type: 'geojson', data: emptyFC() });
     map.addSource('couriers', { type: 'geojson', data: emptyFC() });
@@ -76,17 +125,6 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
       },
     });
     map.addLayer({
-      id: 'restos-circle',
-      type: 'circle',
-      source: 'restos',
-      paint: {
-        'circle-radius': 7,
-        'circle-color': '#d95f02',
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2,
-      },
-    });
-    map.addLayer({
       id: 'orders-circle',
       type: 'circle',
       source: 'orders',
@@ -99,35 +137,45 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
       },
     });
     map.addLayer({
-      id: 'couriers-circle',
-      type: 'circle',
-      source: 'couriers',
-      paint: {
-        'circle-radius': 6,
-        'circle-color': mode === 'before' ? '#b3261e' : '#1d7a3e',
-        'circle-stroke-color': '#ffffff',
-        'circle-stroke-width': 2.5,
+      id: 'restos-symbol',
+      type: 'symbol',
+      source: 'restos',
+      layout: {
+        'icon-image': 'resto-icon',
+        'icon-size': 0.75,
+        'icon-allow-overlap': true,
+        ...iconLabelLayout(),
       },
+      paint: labelPaint(),
     });
-
-    const labelLayout: SymbolLayerSpecification['layout'] = {
-      'text-field': ['get', 'label'],
-      'text-font': ['Noto Sans Bold'],
-      'text-size': 11,
-      'text-offset': [0, 1.35],
-      'text-anchor': 'top',
-      'text-max-width': 14,
-      'text-letter-spacing': 0.1,
-      'text-padding': 2,
-    };
-    const labelPaint: SymbolLayerSpecification['paint'] = {
-      'text-color': '#3c3a45',
-      'text-halo-color': '#ffffff',
-      'text-halo-width': 1.4,
-    };
-    map.addLayer({ id: 'restos-label', type: 'symbol', source: 'restos', layout: labelLayout, paint: labelPaint });
-    map.addLayer({ id: 'orders-label', type: 'symbol', source: 'orders', layout: labelLayout, paint: labelPaint });
-    map.addLayer({ id: 'couriers-label', type: 'symbol', source: 'couriers', layout: labelLayout, paint: labelPaint });
+    map.addLayer({
+      id: 'couriers-symbol',
+      type: 'symbol',
+      source: 'couriers',
+      layout: {
+        'icon-image': ['get', 'icon'],
+        'icon-size': 0.75,
+        'icon-allow-overlap': true,
+        ...iconLabelLayout(),
+      },
+      paint: labelPaint(),
+    });
+    map.addLayer({
+      id: 'orders-label',
+      type: 'symbol',
+      source: 'orders',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-font': ['Noto Sans Bold'],
+        'text-size': 11,
+        'text-offset': [0, 1.35],
+        'text-anchor': 'top',
+        'text-max-width': 14,
+        'text-letter-spacing': 0.1,
+        'text-padding': 2,
+      },
+      paint: labelPaint(),
+    });
 
     const show = (e: MapLayerMouseEvent) => {
       const d = dataRef.current;
@@ -140,9 +188,30 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         .setHTML(html)
         .addTo(map);
     };
-    map.on('click', 'couriers-circle', show);
+    map.on('click', 'couriers-symbol', show);
     map.on('click', 'orders-circle', show);
-    map.on('click', 'restos-circle', show);
+    map.on('click', 'restos-symbol', show);
+  }
+
+  function iconLabelLayout(): SymbolLayerSpecification['layout'] {
+    return {
+      'text-field': ['get', 'label'],
+      'text-font': ['Noto Sans Bold'],
+      'text-size': 11,
+      'text-offset': [0, 1.6],
+      'text-anchor': 'top',
+      'text-max-width': 14,
+      'text-letter-spacing': 0.1,
+      'text-padding': 2,
+    };
+  }
+
+  function labelPaint(): SymbolLayerSpecification['paint'] {
+    return {
+      'text-color': '#3c3a45',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.4,
+    };
   }
 
   function emptyFC(): GeoJSON.FeatureCollection {
@@ -176,11 +245,12 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     w.__etaMap = map;
     (w.__etaMaps ??= []).push(map);
     map.on('load', () => {
-      ensureSources(map);
-      refreshStatic();
-      const sc = dataRef.current.scenario;
-      if (sc && fittedRef.current !== sc) fitScenario(map, sc);
-      refreshAt(dataRef.current.time);
+      void ensureSources(map).then(() => {
+        refreshStatic();
+        const sc = dataRef.current.scenario;
+        if (sc && fittedRef.current !== sc) fitScenario(map, sc);
+        refreshAt(dataRef.current.time);
+      });
     });
     return () => {
       popupRef.current?.remove();
@@ -196,11 +266,10 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !map.isStyleLoaded()) return;
-    if (map.getLayer('couriers-circle'))
-      map.setPaintProperty('couriers-circle', 'circle-color', mode === 'before' ? '#b3261e' : '#1d7a3e');
     if (scenario && fittedRef.current !== scenario) fitScenario(map, scenario);
     refreshStatic();
     refreshAt(dataRef.current.time);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario, result, mode]);
 
   function refreshStatic() {
@@ -268,6 +337,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     (map.getSource('orders') as GeoJSONSource).setData({ type: 'FeatureCollection', features: orderFeatures });
 
     // couriers
+    const courierIcon = mode === 'before' ? 'courier-before' : 'courier-after';
     const courierFeatures: GeoJSON.Feature[] = [];
     if (d.result) {
       for (const c of d.scenario!.couriers) {
@@ -279,6 +349,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
           geometry: { type: 'Point', coordinates: pos },
           properties: {
             label: `Courier #${c.id} · ${active ? (active.kind === 'pickup' ? 'riding' : 'delivering') : 'idle'}`,
+            icon: courierIcon,
             html: `<b>Courier #${c.id}</b><br/><span class="popup-muted">${active ? (active.kind === 'pickup' ? 'riding to restaurant' : 'delivering') : 'idle'}</span>`,
           },
         });
@@ -288,7 +359,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         courierFeatures.push({
           type: 'Feature',
           geometry: { type: 'Point', coordinates: c.home },
-          properties: { label: `Courier #${c.id} · idle`, html: `<b>Courier #${c.id}</b>` },
+          properties: { label: `Courier #${c.id} · idle`, icon: courierIcon, html: `<b>Courier #${c.id}</b>` },
         });
     }
     (map.getSource('couriers') as GeoJSONSource).setData({ type: 'FeatureCollection', features: courierFeatures });
@@ -312,9 +383,28 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
       dataRef.current.time = t;
       refreshAt(t);
     },
+    getMap: () => mapRef.current,
   }));
 
-  return <div ref={containerRef} className={className ?? 'min-h-0 flex-1'} />;
+  const badge = mode === 'before' ? 'BEFORE' : 'AFTER';
+  const badgeDesc =
+    mode === 'before' ? 'naive dispatch · crow-flies & flat ETA' : 'smart dispatch · road-time routing & honest ETA';
+
+  return (
+    <div className={`relative ${className ?? 'min-h-0 flex-1'}`}>
+      <div ref={containerRef} className="h-full w-full" />
+      <div className="pointer-events-none absolute left-1/2 top-2 z-10 -translate-x-1/2">
+        <div className="flex items-center overflow-hidden rounded-full border border-[var(--line)] bg-[var(--panel)] shadow-md">
+          <span
+            className={`px-2.5 py-1 text-[11px] font-bold tracking-wide text-white ${mode === 'before' ? 'bg-[var(--before)]' : 'bg-[var(--after)]'}`}
+          >
+            {badge}
+          </span>
+          <span className="px-2.5 py-1 text-[11px] text-[var(--muted)]">{badgeDesc}</span>
+        </div>
+      </div>
+    </div>
+  );
 });
 
 function fmtClock(sc: Scenario, tMin: number): string {

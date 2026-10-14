@@ -106,3 +106,86 @@ html:not([data-theme='dark']) .only-dark {
 html[data-theme='dark'] .maplibregl-map {
   filter: brightness(0.85) saturate(0.92);
 }
+
+/* Hover tooltip for numbers: <span class="tip" data-tip="...">12.3</span> */
+.tip {
+  position: relative;
+  cursor: help;
+  text-decoration: underline dotted var(--muted);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.tip::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 230px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  background: var(--ink);
+  color: var(--bg);
+  font-size: 11px;
+  line-height: 1.45;
+  font-weight: 400;
+  text-align: left;
+  text-decoration: none;
+  white-space: normal;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.25);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.tip::before {
+  content: '';
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--ink);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.tip:hover::after,
+.tip:focus-visible::after,
+.tip:hover::before,
+.tip:focus-visible::before {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* variants: open below (tip-b) / right-aligned box (tip-r) */
+.tip-b::after {
+  bottom: auto;
+  top: calc(100% + 7px);
+}
+
+.tip-b::before {
+  bottom: auto;
+  top: calc(100% + 2px);
+  border-top-color: transparent;
+  border-bottom-color: var(--ink);
+}
+
+.tip-r::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
+.tip-r::before {
+  left: auto;
+  right: 10px;
+  transform: none;
+}
