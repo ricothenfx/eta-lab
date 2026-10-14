@@ -17,7 +17,7 @@ and reproducible with one command.
 3. Replay the rush on the map (play, scrub, speed), flip **BEFORE / AFTER**, and read the
    delta table. **Export JSON** downloads the run.
 
-Live: **https://eta-lab.vercel.app** · methodology: [`/methodology`](https://eta-lab.vercel.app/methodology)
+Live: **https://eta-lab.ricothen.com** · methodology: [`/methodology`](https://eta-lab.ricothen.com/methodology)
 
 ## Measured results (3 deterministic seeds, recorded snapshot — see `reports/`)
 
