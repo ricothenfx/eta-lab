@@ -4,7 +4,7 @@ import { useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
 import { Map as MapLibreMap, AttributionControl, Popup, type GeoJSONSource, type MapLayerMouseEvent, type SymbolLayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Scenario } from '@/lib/scenario';
-import type { SimResult, TrailSeg } from '@/lib/sim';
+import type { Mode, SimResult, TrailSeg } from '@/lib/sim';
 import { courierPositionAt, activeRoutesAt } from '@/lib/sim';
 
 export const BERLIN_CENTER: [number, number] = [13.405, 52.52];
@@ -14,11 +14,19 @@ export interface MapViewHandle {
   getMap: () => MapLibreMap | null;
 }
 
+/** A courier picked on the map, scoped to the mode of the map it was clicked on. */
+export interface CourierSelection {
+  mode: Mode;
+  courierId: number;
+}
+
 interface Props {
   scenario: Scenario | null;
   result: SimResult | null;
   mode: 'before' | 'after';
   time: number;
+  selection?: CourierSelection | null;
+  onSelectCourier?: (selection: CourierSelection | null) => void;
   className?: string;
 }
 
@@ -81,22 +89,28 @@ function makeMap(container: HTMLElement): MapLibreMap {
 }
 
 export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
-  { scenario, result, mode, time, className },
+  { scenario, result, mode, time, selection, onSelectCourier, className },
   ref,
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const popupRef = useRef<Popup | null>(null);
   const fittedRef = useRef<Scenario | null>(null);
+  const onSelectRef = useRef(onSelectCourier);
   const dataRef = useRef<{
     scenario: Scenario | null;
     result: SimResult | null;
     time: number;
-  }>({ scenario: null, result: null, time: 0 });
+    mode: 'before' | 'after';
+    selection: CourierSelection | null;
+  }>({ scenario: null, result: null, time: 0, mode, selection: null });
 
   dataRef.current.scenario = scenario;
   dataRef.current.result = result;
   dataRef.current.time = time;
+  dataRef.current.mode = mode;
+  dataRef.current.selection = selection ?? null;
+  onSelectRef.current = onSelectCourier;
 
   async function ensureSources(map: MapLibreMap) {
     if (map.getSource('restos')) return;
@@ -113,7 +127,32 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     map.addSource('orders', { type: 'geojson', data: emptyFC() });
     map.addSource('couriers', { type: 'geojson', data: emptyFC() });
     map.addSource('routes', { type: 'geojson', data: emptyFC() });
+    map.addSource('ctrail', { type: 'geojson', data: emptyFC() });
 
+    // Selected courier's full day: solid = already ridden, dashed = planned.
+    map.addLayer({
+      id: 'ctrail-past',
+      type: 'line',
+      source: 'ctrail',
+      filter: ['==', ['get', 'phase'], 'past'],
+      paint: {
+        'line-color': ['get', 'c'],
+        'line-width': 3.5,
+        'line-opacity': 0.9,
+      },
+    });
+    map.addLayer({
+      id: 'ctrail-future',
+      type: 'line',
+      source: 'ctrail',
+      filter: ['==', ['get', 'phase'], 'future'],
+      paint: {
+        'line-color': ['get', 'c'],
+        'line-width': 2.5,
+        'line-opacity': 0.5,
+        'line-dasharray': [1.2, 1.6],
+      },
+    });
     map.addLayer({
       id: 'routes-line',
       type: 'line',
@@ -149,6 +188,19 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
       paint: labelPaint(),
     });
     map.addLayer({
+      id: 'couriers-halo',
+      type: 'circle',
+      source: 'couriers',
+      filter: ['==', ['get', 'sel'], 1],
+      paint: {
+        'circle-radius': 12,
+        'circle-opacity': 0,
+        'circle-stroke-color': ['get', 'hc'],
+        'circle-stroke-width': 2.5,
+        'circle-stroke-opacity': 0.9,
+      },
+    });
+    map.addLayer({
       id: 'couriers-symbol',
       type: 'symbol',
       source: 'couriers',
@@ -156,6 +208,12 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         'icon-image': ['get', 'icon'],
         'icon-size': 0.75,
         'icon-allow-overlap': true,
+        // A courier marker must NEVER be hidden by label collision: with
+        // text-optional=false (default) MapLibre drops the whole symbol —
+        // icon included — when its label loses a collision. Couriers stay
+        // permanently traceable instead.
+        'text-allow-overlap': true,
+        'text-optional': true,
         ...iconLabelLayout(),
       },
       paint: labelPaint(),
@@ -178,6 +236,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     });
 
     const show = (e: MapLayerMouseEvent) => {
+      e.preventDefault(); // keep the background click from clearing the selection
       const d = dataRef.current;
       const f = e.features?.[0];
       if (!f || !d.result) return;
@@ -188,9 +247,31 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         .setHTML(html)
         .addTo(map);
     };
-    map.on('click', 'couriers-symbol', show);
     map.on('click', 'orders-circle', show);
     map.on('click', 'restos-symbol', show);
+    // Clicking a courier selects it (click again or the map background to deselect).
+    map.on('click', 'couriers-symbol', (e) => {
+      e.preventDefault();
+      const id = e.features?.[0]?.properties?.id;
+      if (id == null) return;
+      const d = dataRef.current;
+      const next: CourierSelection = { mode: d.mode, courierId: Number(id) };
+      const cur = d.selection;
+      onSelectRef.current?.(
+        cur && cur.mode === next.mode && cur.courierId === next.courierId ? null : next,
+      );
+    });
+    map.on('mouseenter', 'couriers-symbol', () => {
+      map.getCanvas().style.cursor = 'pointer';
+    });
+    map.on('mouseleave', 'couriers-symbol', () => {
+      map.getCanvas().style.cursor = '';
+    });
+    map.on('click', (e) => {
+      if (e.defaultPrevented) return;
+      popupRef.current?.remove();
+      onSelectRef.current?.(null);
+    });
   }
 
   function iconLabelLayout(): SymbolLayerSpecification['layout'] {
@@ -272,6 +353,14 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario, result, mode]);
 
+  // Repaint halo + trail when the courier selection changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded() || !map.getSource('ctrail')) return;
+    refreshAt(dataRef.current.time);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selection]);
+
   function refreshStatic() {
     const map = mapRef.current;
     const sc = dataRef.current.scenario;
@@ -336,8 +425,9 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     }
     (map.getSource('orders') as GeoJSONSource).setData({ type: 'FeatureCollection', features: orderFeatures });
 
-    // couriers
+    // couriers — every courier is always rendered, never filtered out
     const courierIcon = mode === 'before' ? 'courier-before' : 'courier-after';
+    const sel = d.selection && d.selection.mode === mode ? d.selection : null;
     const courierFeatures: GeoJSON.Feature[] = [];
     if (d.result) {
       for (const c of d.scenario!.couriers) {
@@ -348,9 +438,11 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
           type: 'Feature',
           geometry: { type: 'Point', coordinates: pos },
           properties: {
+            id: c.id,
+            sel: sel?.courierId === c.id ? 1 : 0,
+            hc: COURIER_COLORS[mode],
             label: `Courier #${c.id} · ${active ? (active.kind === 'pickup' ? 'riding' : 'delivering') : 'idle'}`,
             icon: courierIcon,
-            html: `<b>Courier #${c.id}</b><br/><span class="popup-muted">${active ? (active.kind === 'pickup' ? 'riding to restaurant' : 'delivering') : 'idle'}</span>`,
           },
         });
       }
@@ -359,10 +451,31 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         courierFeatures.push({
           type: 'Feature',
           geometry: { type: 'Point', coordinates: c.home },
-          properties: { label: `Courier #${c.id} · idle`, icon: courierIcon, html: `<b>Courier #${c.id}</b>` },
+          properties: {
+            id: c.id,
+            sel: sel?.courierId === c.id ? 1 : 0,
+            hc: COURIER_COLORS[mode],
+            label: `Courier #${c.id} · idle`,
+            icon: courierIcon,
+          },
         });
     }
     (map.getSource('couriers') as GeoJSONSource).setData({ type: 'FeatureCollection', features: courierFeatures });
+
+    // selected courier's full-day trail: ridden segments solid, planned dashed
+    const trailFeatures: GeoJSON.Feature[] = [];
+    if (sel && d.result) {
+      const segs = d.result.trails.get(sel.courierId) ?? ([] as TrailSeg[]);
+      for (const s of segs) {
+        const phase = s.t0 >= t ? 'future' : 'past'; // segment being ridden counts as past
+        trailFeatures.push({
+          type: 'Feature',
+          geometry: { type: 'LineString', coordinates: s.coords },
+          properties: { phase, c: COURIER_COLORS[mode] },
+        });
+      }
+    }
+    (map.getSource('ctrail') as GeoJSONSource)?.setData({ type: 'FeatureCollection', features: trailFeatures });
 
     // active route polylines
     const routeFeatures: GeoJSON.Feature[] = [];

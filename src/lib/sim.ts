@@ -202,6 +202,11 @@ export function courierPositionAt(segs: TrailSeg[], courierHome: LngLat, t: numb
   return last;
 }
 
+/** All orders handled by one courier, in dispatch order (courier activity panel). */
+export function courierJobs(records: OrderRecord[], courierId: number): OrderRecord[] {
+  return records.filter((r) => r.courierId === courierId).sort((a, b) => a.tDispatch - b.tDispatch);
+}
+
 /** Routes visible at virtual time t (polylines currently being ridden). */
 export function activeRoutesAt(segs: TrailSeg[], t: number): TrailSeg[] {
   return segs.filter((s) => t >= s.t0 && t <= s.t1);

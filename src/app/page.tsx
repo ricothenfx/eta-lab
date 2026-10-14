@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { Map as MapLibreMap } from 'maplibre-gl';
-import { MapView, type MapViewHandle } from '@/components/MapView';
+import { MapView, type MapViewHandle, type CourierSelection } from '@/components/MapView';
 import ThemeToggle from '@/components/ThemeToggle';
 import { OsrmProvider, loadRecordedData, localStorageStore } from '@/lib/osrm';
 import { generateScenario, PRESETS, type PresetKey, type Scenario } from '@/lib/scenario';
-import { runSimulation, type Mode, type SimResult } from '@/lib/sim';
+import { courierJobs, runSimulation, type Mode, type SimResult } from '@/lib/sim';
 import { compareMetrics, computeMetrics, type Metrics } from '@/lib/metrics';
 
 interface RunResult {
@@ -55,6 +55,7 @@ export default function Home() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(30);
   const [time, setTime] = useState(0);
+  const [courierSel, setCourierSel] = useState<CourierSelection | null>(null);
   const [degraded, setDegraded] = useState(false);
   const [aiText, setAiText] = useState<string | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -154,6 +155,7 @@ export default function Home() {
     setPlaying(false);
     setAiText(null);
     setResults({});
+    setCourierSel(null);
     setView('before');
     setVirtualTime(0);
     try {
@@ -193,6 +195,7 @@ export default function Home() {
     setPlaying(false);
     setProgress('');
     setAiText(null);
+    setCourierSel(null);
     setVirtualTime(0);
     setView('before');
   }, [setVirtualTime]);
@@ -245,13 +248,10 @@ export default function Home() {
     }
   }, [before, after, deltas, scenario, presetKey]);
 
-  const clockLabel = useMemo(() => {
-    if (!scenario) return '';
-    const total = Math.round(scenario.startMin + time);
-    const hh = (18 + Math.floor(total / 60)) % 24;
-    const mm = total % 60;
-    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
-  }, [scenario, time]);
+  const clockLabel = useMemo(
+    () => (scenario ? fmtClock(scenario.startMin, time) : ''),
+    [scenario, time],
+  );
 
   return (
     <main className="flex h-dvh flex-col">
@@ -303,9 +303,19 @@ export default function Home() {
               result={before?.result ?? null}
               mode="before"
               time={time}
+              selection={courierSel}
+              onSelectCourier={setCourierSel}
               className="min-h-0 flex-1 border-r border-[var(--line)]"
             />
-            <MapView ref={afterMapRef} scenario={scenario} result={after?.result ?? null} mode="after" time={time} />
+            <MapView
+              ref={afterMapRef}
+              scenario={scenario}
+              result={after?.result ?? null}
+              mode="after"
+              time={time}
+              selection={courierSel}
+              onSelectCourier={setCourierSel}
+            />
           </>
         ) : (
           <MapView
@@ -314,6 +324,8 @@ export default function Home() {
             result={(view === 'before' ? before : after)?.result ?? null}
             mode={view}
             time={time}
+            selection={courierSel}
+            onSelectCourier={setCourierSel}
           />
         )}
 
@@ -434,6 +446,9 @@ export default function Home() {
             </section>
           )}
 
+          {/* courier activity */}
+          {courierSel && scenario && <CourierPanel sel={courierSel} scenario={scenario} before={before} after={after} time={time} onClear={() => setCourierSel(null)} />}
+
           {/* numbers */}
           {before && after && (
             <section className="rounded-lg border border-[var(--line)] p-3">
@@ -508,6 +523,109 @@ export default function Home() {
 
 function isBetter(d: { pct: number; betterIsLower: boolean }): boolean {
   return d.betterIsLower ? d.pct < 0 : d.pct > 0;
+}
+
+function fmtClock(startMin: number, tMin: number): string {
+  const total = Math.round(startMin + tMin);
+  const hh = (18 + Math.floor(total / 60)) % 24;
+  const mm = total % 60;
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
+function CourierPanel({
+  sel,
+  scenario,
+  before,
+  after,
+  time,
+  onClear,
+}: {
+  sel: CourierSelection;
+  scenario: Scenario;
+  before?: RunResult;
+  after?: RunResult;
+  time: number;
+  onClear: () => void;
+}) {
+  const run = sel.mode === 'before' ? before : after;
+  const jobs = run ? courierJobs(run.result.records, sel.courierId) : [];
+  const segs = run?.result.trails.get(sel.courierId) ?? [];
+
+  let status = '';
+  if (!run) {
+    status = 'Run the comparison to see this courier’s jobs.';
+  } else {
+    const active = segs.find((s) => time >= s.t0 && time <= s.t1);
+    const next = segs.find((s) => s.t0 > time);
+    const done = segs.length > 0 && time > segs[segs.length - 1].t1;
+    if (active)
+      status =
+        active.kind === 'pickup'
+          ? `Riding to ${scenario.orders[active.orderId].resto.name} for order #${active.orderId}`
+          : `Delivering order #${active.orderId} to the customer`;
+    else if (!segs.length) status = 'Idle at hotspot — waiting for first dispatch';
+    else if (next)
+      status =
+        next.kind === 'pickup'
+          ? `Idle — order #${next.orderId} dispatches at ${fmtClock(scenario.startMin, next.t0)}`
+          : `Waiting at the restaurant for order #${next.orderId}`;
+    else if (done) status = 'Shift complete — idle at the last customer';
+  }
+
+  return (
+    <section className="rounded-lg border border-[var(--line)] p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
+          Courier #{sel.courierId}
+          <span
+            className={`rounded px-1.5 py-0.5 text-[10px] font-bold text-white ${
+              sel.mode === 'before' ? 'bg-[var(--before)]' : 'bg-[var(--after)]'
+            }`}
+          >
+            {sel.mode === 'before' ? 'BEFORE' : 'AFTER'}
+          </span>
+        </h2>
+        <button
+          className="rounded px-1.5 py-0.5 text-xs text-[var(--muted)] hover:bg-[var(--hover)]"
+          title="Deselect courier"
+          onClick={onClear}
+        >
+          ✕
+        </button>
+      </div>
+      {status && <p className="mb-2 text-xs">{status}</p>}
+      {run && jobs.length === 0 && <p className="text-xs text-[var(--muted)]">No jobs assigned in this run.</p>}
+      {jobs.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {jobs.map((r) => {
+            const st =
+              time >= r.tDeliver ? 'delivered' : time >= r.tPickup ? 'on the way' : time >= r.tDispatch ? 'to pickup' : 'queued';
+            const isNow = time >= r.tDispatch && time < r.tDeliver;
+            return (
+              <li
+                key={r.id}
+                className={`rounded border px-2 py-1 ${isNow ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--line)]'}`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">Order #{r.id}</span>
+                  <span className={`text-[11px] ${st === 'delivered' ? 'text-[var(--muted)]' : 'font-semibold text-[var(--accent)]'}`}>
+                    {st}
+                  </span>
+                </div>
+                <div className="text-[11px] text-[var(--muted)]">
+                  {scenario.orders[r.id].resto.name} · {fmtClock(scenario.startMin, r.tPickup)} →{' '}
+                  {fmtClock(scenario.startMin, r.tDeliver)}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <p className="mt-2 text-[10px] leading-relaxed text-[var(--muted)]">
+        Solid trail = ridden · dashed = planned. Click the courier again or the map background to deselect.
+      </p>
+    </section>
+  );
 }
 
 function ViewTab({
