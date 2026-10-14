@@ -9,15 +9,100 @@
   --before: #b3261e;
   --after: #1d7a3e;
   --accent: #1a4fd6;
+  --accent-ink: #ffffff;
+  --accent-soft: #f2f5ff;
+  --chip: #eef1f4;
+  --hover: #e9edf1;
+  --ink-soft: #33404d;
+  --warn-bg: #fdf1d6;
+  --warn-ink: #8a6100;
 }
 
-html,
+[data-theme='dark'] {
+  --bg: #0e141c;
+  --panel: #161d27;
+  --ink: #e6ebf2;
+  --muted: #96a2b3;
+  --line: #2a3441;
+  --before: #e25c4d;
+  --after: #37a562;
+  --accent: #86a9f5;
+  --accent-ink: #0d1420;
+  --accent-soft: #1b2740;
+  --chip: #1d2530;
+  --hover: #222c3a;
+  --ink-soft: #b9c4d3;
+  --warn-bg: #33290f;
+  --warn-ink: #e2b64e;
+}
+
+html {
+  height: 100%;
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+}
+
 body {
   height: 100%;
   background: var(--bg);
   color: var(--ink);
 }
 
-.maplibregl-ctrl-attrib {
+html[data-theme='dark'] .only-light {
+  display: none;
+}
+
+html:not([data-theme='dark']) .only-dark {
+  display: none;
+}
+
+.maplibregl-map .maplibregl-popup-content {
+  background: var(--panel);
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.2);
+}
+
+.popup-muted {
+  color: var(--muted);
+}
+
+.maplibregl-map .maplibregl-popup-anchor-bottom .maplibregl-popup-tip,
+.maplibregl-map .maplibregl-popup-anchor-bottom-left .maplibregl-popup-tip,
+.maplibregl-map .maplibregl-popup-anchor-bottom-right .maplibregl-popup-tip {
+  border-top-color: var(--panel);
+}
+
+.maplibregl-map .maplibregl-popup-anchor-top .maplibregl-popup-tip,
+.maplibregl-map .maplibregl-popup-anchor-top-left .maplibregl-popup-tip,
+.maplibregl-map .maplibregl-popup-anchor-top-right .maplibregl-popup-tip {
+  border-bottom-color: var(--panel);
+}
+
+.maplibregl-map .maplibregl-popup-anchor-left .maplibregl-popup-tip {
+  border-right-color: var(--panel);
+}
+
+.maplibregl-map .maplibregl-popup-anchor-right .maplibregl-popup-tip {
+  border-left-color: var(--panel);
+}
+
+.maplibregl-map .maplibregl-ctrl-attrib {
   font-size: 10px;
+  background: var(--panel);
+  color: var(--muted);
+}
+
+.maplibregl-map .maplibregl-ctrl-attrib a {
+  color: var(--accent);
+}
+
+html[data-theme='dark'] .maplibregl-map {
+  filter: brightness(0.85) saturate(0.92);
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
-import { Map as MapLibreMap, AttributionControl, Popup, type GeoJSONSource } from 'maplibre-gl';
+import { Map as MapLibreMap, AttributionControl, Popup, type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Scenario } from '@/lib/scenario';
 import type { SimResult, TrailSeg } from '@/lib/sim';
@@ -106,7 +106,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
       },
     });
 
-    const show = (e: any) => {
+    const show = (e: MapLayerMouseEvent) => {
       const d = dataRef.current;
       const f = e.features?.[0];
       if (!f || !d.result) return;
@@ -169,7 +169,6 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
     }
     refreshStatic();
     refreshAt(dataRef.current.time);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenario, result, mode]);
 
   function refreshStatic() {
@@ -182,7 +181,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: r.pos },
         properties: {
-          html: `<b>${r.name}</b><br/><span style="color:#666">${r.area} · prep ~${Math.round(r.prepMeanMin)} min</span>`,
+          html: `<b>${r.name}</b><br/><span class="popup-muted">${r.area} · prep ~${Math.round(r.prepMeanMin)} min</span>`,
         },
       })),
     });
@@ -218,7 +217,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
           properties: {
             color: ORDER_COLORS[status],
             status,
-            html: `<b>Order #${o.id}</b><br/><span style="color:#666">${o.resto.name} · ${info}<br/>` +
+            html: `<b>Order #${o.id}</b><br/><span class="popup-muted">${o.resto.name} · ${info}<br/>` +
               `promised ${fmtClock(d.scenario!, r.promised)} · actual ${fmtClock(d.scenario!, r.tDeliver)}</span>`,
           },
         });
@@ -237,7 +236,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
           type: 'Feature',
           geometry: { type: 'Point', coordinates: pos },
           properties: {
-            html: `<b>Courier #${c.id}</b><br/><span style="color:#666">${active ? (active.kind === 'pickup' ? 'riding to restaurant' : 'delivering') : 'idle'}</span>`,
+            html: `<b>Courier #${c.id}</b><br/><span class="popup-muted">${active ? (active.kind === 'pickup' ? 'riding to restaurant' : 'delivering') : 'idle'}</span>`,
           },
         });
       }

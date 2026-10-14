@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import ThemeToggle from '@/components/ThemeToggle';
+
 export const metadata = {
   title: 'Methodology — eta-lab',
   description: 'How the BEFORE/AFTER numbers are produced and why they are reproducible.',
@@ -7,7 +10,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <section className="mb-8">
       <h2 className="mb-2 text-lg font-semibold">{title}</h2>
-      <div className="space-y-2 text-[15px] leading-relaxed text-[#33404d]">{children}</div>
+      <div className="space-y-2 text-[15px] leading-relaxed text-[var(--ink-soft)]">{children}</div>
     </section>
   );
 }
@@ -15,13 +18,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function MethodologyPage() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
-      <a href="/" className="text-sm text-[var(--accent)] underline">
-        ← back to the lab
-      </a>
+      <div className="flex items-center justify-between">
+        <Link href="/" className="text-sm text-[var(--accent)] underline">
+          ← back to the lab
+        </Link>
+        <nav className="flex items-center gap-3 text-sm">
+          <Link href="/qa" className="text-[var(--accent)] underline">
+            Q&amp;A
+          </Link>
+          <ThemeToggle />
+        </nav>
+      </div>
       <h1 className="mb-1 mt-4 text-3xl font-bold tracking-tight">Methodology</h1>
       <p className="mb-8 text-[var(--muted)]">
         Every number in eta-lab is produced by the code in the repository and can be re-run with
-        one command: <code className="rounded bg-gray-100 px-1">npm run bench -- --recorded</code>.
+        one command: <code className="rounded bg-[var(--chip)] px-1">npm run bench -- --recorded</code>.
       </p>
 
       <Section title="What the two runs are">
@@ -49,8 +60,8 @@ export default function MethodologyPage() {
           Order arrivals, restaurants, customers, kitchen prep times and per-leg traffic noise are
           drawn from a seeded PRNG (mulberry32). Route durations come from OSRM; the exact values
           used for the published numbers are frozen in{' '}
-          <code className="rounded bg-gray-100 px-1">public/data/recorded-routes.json</code>, so{' '}
-          <code className="rounded bg-gray-100 px-1">npm run bench -- --recorded</code> reproduces
+          <code className="rounded bg-[var(--chip)] px-1">public/data/recorded-routes.json</code>, so{' '}
+          <code className="rounded bg-[var(--chip)] px-1">npm run bench -- --recorded</code> reproduces
           the published tables byte-for-byte, offline. Re-running against live OSRM may shift
           numbers slightly when the road graph is updated upstream — the reports record the
           provider and date of each run.

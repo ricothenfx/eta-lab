@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { MapView, type MapViewHandle } from '@/components/MapView';
+import ThemeToggle from '@/components/ThemeToggle';
 import { OsrmProvider, loadRecordedData, localStorageStore } from '@/lib/osrm';
 import { generateScenario, PRESETS, type PresetKey, type Scenario } from '@/lib/scenario';
 import { runSimulation, type Mode, type SimResult } from '@/lib/sim';
@@ -203,16 +205,20 @@ export default function Home() {
         </div>
         <nav className="flex items-center gap-3 text-xs">
           {degraded && (
-            <span className="rounded bg-[#fdf1d6] px-2 py-1 text-[#8a6100]">
+            <span className="rounded bg-[var(--warn-bg)] px-2 py-1 text-[var(--warn-ink)]">
               offline mode — recorded/estimated routes
             </span>
           )}
-          <a className="text-[var(--accent)] underline" href="/methodology">
+          <Link className="text-[var(--accent)] underline" href="/qa">
+            Q&amp;A
+          </Link>
+          <Link className="text-[var(--accent)] underline" href="/methodology">
             Methodology
-          </a>
+          </Link>
           <a className="text-[var(--accent)] underline" href="https://github.com/ricothenfx/eta-lab" target="_blank" rel="noreferrer">
             GitHub
           </a>
+          <ThemeToggle />
         </nav>
       </header>
 
@@ -226,7 +232,7 @@ export default function Home() {
             <label className="mb-2 block">
               <span className="text-[var(--muted)]">Demand</span>
               <select
-                className="mt-1 w-full rounded border border-[var(--line)] bg-white px-2 py-1"
+                className="mt-1 w-full rounded border border-[var(--line)] bg-[var(--panel)] px-2 py-1"
                 value={presetKey}
                 onChange={(e) => applyScenario(e.target.value as PresetKey, seed)}
                 disabled={running}
@@ -252,7 +258,7 @@ export default function Home() {
                 />
               </label>
               <button
-                className="mt-4 rounded border border-[var(--line)] px-2 py-1 hover:bg-gray-50"
+                className="mt-4 rounded border border-[var(--line)] px-2 py-1 hover:bg-[var(--hover)]"
                 title="random seed"
                 onClick={() => applyScenario(presetKey, 1 + Math.floor(Math.random() * 9999))}
                 disabled={running}
@@ -265,7 +271,7 @@ export default function Home() {
           {/* run */}
           <section className="rounded-lg border border-[var(--line)] p-3">
             <button
-              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 font-semibold text-white hover:opacity-90 disabled:opacity-50"
+              className="w-full rounded-lg bg-[var(--accent)] px-3 py-2 font-semibold text-[var(--accent-ink)] hover:opacity-90 disabled:opacity-50"
               onClick={runComparison}
               disabled={running || !scenario}
             >
@@ -273,7 +279,7 @@ export default function Home() {
             </button>
             {progress && <p className="mt-2 text-xs text-[var(--muted)]">{progress}</p>}
             {dirty && !running && (
-              <p className="mt-2 text-xs text-[#8a6100]">Scenario changed — re-run to refresh numbers.</p>
+              <p className="mt-2 text-xs text-[var(--warn-ink)]">Scenario changed — re-run to refresh numbers.</p>
             )}
           </section>
 
@@ -286,13 +292,13 @@ export default function Home() {
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  className="rounded border border-[var(--line)] px-3 py-1 hover:bg-gray-50"
+                  className="rounded border border-[var(--line)] px-3 py-1 hover:bg-[var(--hover)]"
                   onClick={() => setPlaying((p) => !p)}
                 >
                   {playing ? '⏸ Pause' : '▶ Play'}
                 </button>
                 <button
-                  className="rounded border border-[var(--line)] px-3 py-1 hover:bg-gray-50"
+                  className="rounded border border-[var(--line)] px-3 py-1 hover:bg-[var(--hover)]"
                   onClick={() => {
                     setPlaying(false);
                     setVirtualTime(0);
@@ -361,11 +367,11 @@ export default function Home() {
                 </tbody>
               </table>
               <div className="mt-2 flex gap-2">
-                <button className="flex-1 rounded border border-[var(--line)] px-2 py-1 hover:bg-gray-50" onClick={exportJson}>
+                <button className="flex-1 rounded border border-[var(--line)] px-2 py-1 hover:bg-[var(--hover)]" onClick={exportJson}>
                   Export JSON
                 </button>
                 <button
-                  className="flex-1 rounded border border-[var(--line)] px-2 py-1 hover:bg-gray-50 disabled:opacity-50"
+                  className="flex-1 rounded border border-[var(--line)] px-2 py-1 hover:bg-[var(--hover)] disabled:opacity-50"
                   onClick={explainWithAi}
                   disabled={aiBusy}
                 >
@@ -373,7 +379,7 @@ export default function Home() {
                 </button>
               </div>
               {aiText && (
-                <p className="mt-2 whitespace-pre-wrap rounded bg-[#f2f5ff] p-2 text-xs leading-relaxed">{aiText}</p>
+                <p className="mt-2 whitespace-pre-wrap rounded bg-[var(--accent-soft)] p-2 text-xs leading-relaxed">{aiText}</p>
               )}
             </section>
           )}
@@ -405,7 +411,7 @@ function ModeTab({
 }) {
   return (
     <button
-      className={`rounded px-2 py-0.5 font-semibold ${mode === m ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+      className={`rounded px-2 py-0.5 font-semibold ${mode === m ? 'bg-[var(--ink)] text-[var(--panel)]' : 'bg-[var(--chip)] text-[var(--muted)] hover:bg-[var(--hover)]'}`}
       onClick={() => setMode(m)}
     >
       {label}

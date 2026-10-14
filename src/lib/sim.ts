@@ -68,10 +68,8 @@ export async function runSimulation(
   // previous decisions + deterministic route data => reproducible runs.
   for (const order of scenario.orders) {
     let chosen: CourierState;
-    let startAt: number;
 
-    if (mode === 'before') {
-      // Naive dispatch: nearest by crow-flies among *idle* couriers.
+    if (mode === 'before') {      // Naive dispatch: nearest by crow-flies among *idle* couriers.
       // If nobody is idle, wait FIFO-style for the soonest-free courier
       // (no road knowledge, no future planning).
       const idle = [...couriers.values()].filter((c) => c.idleAt <= order.tPlacedMin);
@@ -90,7 +88,7 @@ export async function runSimulation(
         chosen = candidates[0];
       } else {
         const idle = candidates.filter((c) => c.idleAt <= order.tPlacedMin);
-        let pool = candidates;
+        const pool = candidates;
         if (idle.length > 0) {
           // Prefer an idle courier — road time decides which one.
           const minutes = await provider.tableMinutes(idle.map((c) => c.pos), [order.resto.pos]);
@@ -119,9 +117,8 @@ export async function runSimulation(
       }
     }
 
-    startAt = Math.max(order.tPlacedMin, chosen.idleAt);
-    const dispatchLag = startAt - order.tPlacedMin;
-    dispatchLagSum += dispatchLag;
+    const startAt = Math.max(order.tPlacedMin, chosen.idleAt);
+    const dispatchLag = startAt - order.tPlacedMin;    dispatchLagSum += dispatchLag;
 
     // Leg 1: courier -> restaurant (on real roads in BOTH modes; only the
     // choice heuristic and planning differ).

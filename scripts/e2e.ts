@@ -51,7 +51,11 @@ async function main() {
   await page.goto(BASE, { waitUntil: 'domcontentloaded', timeout: 60_000 });
   await page.waitForFunction('window.__etaMap != null', { timeout: 60_000 });
   console.log('2. map instance ready — waiting for idle render…');
-  await page.evaluate(() => (window as any).__etaMap.once('idle'));
+  await page.evaluate(() => {
+    const map = (window as unknown as { __etaMap?: { once: (event: string) => void } }).__etaMap;
+    if (!map) throw new Error('map instance not on window');
+    map.once('idle');
+  });
   await sleep(800);
   await page.screenshot({ path: path.join(OUT, '01-map-initial.png') });
   // NOTE: readPixels on a composited WebGL canvas is always transparent, so we
