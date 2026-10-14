@@ -165,7 +165,9 @@ html[data-theme='dark'] .maplibregl-map {
   visibility: visible;
 }
 
-/* variants: open below (tip-b) / right-aligned box (tip-r) */
+/* variants: open below (tip-b) / right-aligned box (tip-r) / left-aligned box (tip-l).
+   Vertical (default above vs tip-b) and horizontal (centered vs tip-r vs tip-l)
+   modifiers are orthogonal and can be combined, e.g. "tip tip-b tip-l". */
 .tip-b::after {
   bottom: auto;
   top: calc(100% + 7px);
@@ -187,5 +189,15 @@ html[data-theme='dark'] .maplibregl-map {
 .tip-r::before {
   left: auto;
   right: 10px;
+  transform: none;
+}
+
+.tip-l::after {
+  left: 0;
+  transform: none;
+}
+
+.tip-l::before {
+  left: 10px;
   transform: none;
 }

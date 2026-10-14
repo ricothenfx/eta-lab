@@ -305,7 +305,11 @@ export default function Home() {
               time={time}
               selection={courierSel}
               onSelectCourier={setCourierSel}
-              className="min-h-0 flex-1 border-r border-[var(--line)]"
+              className="min-h-0 flex-1"
+            />
+            <div
+              aria-hidden
+              className="w-1 shrink-0 bg-gradient-to-b from-[var(--before)] to-[var(--after)]"
             />
             <MapView
               ref={afterMapRef}
@@ -350,7 +354,7 @@ export default function Home() {
             </label>
             <div className="flex items-center gap-2">
               <label className="flex-1">
-                <span className="tip tip-b text-[var(--muted)]" tabIndex={0} data-tip={SEED_TIP}>Seed (deterministic)</span>
+                <span className="tip tip-b tip-l text-[var(--muted)]" tabIndex={0} data-tip={SEED_TIP}>Seed (deterministic)</span>
                 <input
                   type="number"
                   className="mt-1 w-full rounded border border-[var(--line)] px-2 py-1"
@@ -393,7 +397,7 @@ export default function Home() {
               <div className="mb-2 flex items-center justify-between">
                 <h2 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">Replay</h2>
                 <span className="font-mono text-sm">
-                  <span className="tip" tabIndex={0} data-tip={CLOCK_TIP}>{clockLabel}</span>
+                  <span className="tip tip-r" tabIndex={0} data-tip={CLOCK_TIP}>{clockLabel}</span>
                 </span>
               </div>
               <div className="flex items-center gap-2">
@@ -412,7 +416,7 @@ export default function Home() {
                 >
                   ⏮
                 </button>
-                <span className="tip ml-auto" tabIndex={0} data-tip={SPEED_TIP}>
+                <span className="tip tip-r ml-auto" tabIndex={0} data-tip={SPEED_TIP}>
                   <select
                     className="rounded border border-[var(--line)] px-1 py-1"
                     value={speed}
@@ -454,14 +458,14 @@ export default function Home() {
             <section className="rounded-lg border border-[var(--line)] p-3">
               <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">
                 Results —{' '}
-                <span className="tip" tabIndex={0} data-tip={RESULTS_SEED_TIP}>seed {scenario?.seed}</span>
+                <span className="tip tip-l" tabIndex={0} data-tip={RESULTS_SEED_TIP}>seed {scenario?.seed}</span>
               </h2>
               <table className="w-full text-xs">
                 <thead>
                   <tr className="text-left text-[var(--muted)]">
                     <th className="py-1">metric</th>
                     <th className="py-1 text-right text-[var(--before)]">
-                      <span className="tip tip-r" tabIndex={0} data-tip={BEFORE_TIP}>BEFORE</span>
+                      <span className="tip" tabIndex={0} data-tip={BEFORE_TIP}>BEFORE</span>
                     </th>
                     <th className="py-1 text-right text-[var(--after)]">
                       <span className="tip tip-r" tabIndex={0} data-tip={AFTER_TIP}>AFTER</span>
@@ -475,10 +479,10 @@ export default function Home() {
                   {deltas.map((d) => (
                     <tr key={d.label} className="border-t border-[var(--line)]">
                       <td className="py-1">
-                        <span className="tip" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.label}</span>
+                        <span className="tip tip-l" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.label}</span>
                       </td>
                       <td className="py-1 text-right font-mono">
-                        <span className="tip tip-r" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.before.toFixed(1)}</span>
+                        <span className="tip" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.before.toFixed(1)}</span>
                       </td>
                       <td className="py-1 text-right font-mono">
                         <span className="tip tip-r" tabIndex={0} data-tip={METRIC_TIPS[d.label] ?? ''}>{d.after.toFixed(1)}</span>
