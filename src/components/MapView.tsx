@@ -183,6 +183,8 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         'icon-image': 'resto-icon',
         'icon-size': 0.75,
         'icon-allow-overlap': true,
+        // label may hide on collision; the restaurant icon stays visible
+        'text-optional': true,
         ...iconLabelLayout(),
       },
       paint: labelPaint(),
@@ -208,11 +210,12 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         'icon-image': ['get', 'icon'],
         'icon-size': 0.75,
         'icon-allow-overlap': true,
-        // A courier marker must NEVER be hidden by label collision: with
-        // text-optional=false (default) MapLibre drops the whole symbol —
-        // icon included — when its label loses a collision. Couriers stay
-        // permanently traceable instead.
-        'text-allow-overlap': true,
+        // The courier ICON must never be hidden by collision, but its LABEL
+        // may: several couriers idle on the exact same hotspot, and with
+        // 'text-allow-overlap' every stacked label drew on top of the others
+        // (garbled double text). With text collision enabled and
+        // 'text-optional': true, a colliding label simply hides while the
+        // icon — and the click target — stays on the map.
         'text-optional': true,
         ...iconLabelLayout(),
       },
