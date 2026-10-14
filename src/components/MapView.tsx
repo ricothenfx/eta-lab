@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useImperativeHandle, useRef, forwardRef } from 'react';
-import { Map as MapLibreMap, AttributionControl, Popup, type GeoJSONSource, type MapLayerMouseEvent } from 'maplibre-gl';
+import { Map as MapLibreMap, AttributionControl, Popup, type GeoJSONSource, type MapLayerMouseEvent, type SymbolLayerSpecification } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Scenario } from '@/lib/scenario';
 import type { SimResult, TrailSeg } from '@/lib/sim';
@@ -110,6 +110,25 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
       },
     });
 
+    const labelLayout: SymbolLayerSpecification['layout'] = {
+      'text-field': ['get', 'label'],
+      'text-font': ['Noto Sans Bold'],
+      'text-size': 11,
+      'text-offset': [0, 1.35],
+      'text-anchor': 'top',
+      'text-max-width': 14,
+      'text-letter-spacing': 0.1,
+      'text-padding': 2,
+    };
+    const labelPaint: SymbolLayerSpecification['paint'] = {
+      'text-color': '#3c3a45',
+      'text-halo-color': '#ffffff',
+      'text-halo-width': 1.4,
+    };
+    map.addLayer({ id: 'restos-label', type: 'symbol', source: 'restos', layout: labelLayout, paint: labelPaint });
+    map.addLayer({ id: 'orders-label', type: 'symbol', source: 'orders', layout: labelLayout, paint: labelPaint });
+    map.addLayer({ id: 'couriers-label', type: 'symbol', source: 'couriers', layout: labelLayout, paint: labelPaint });
+
     const show = (e: MapLayerMouseEvent) => {
       const d = dataRef.current;
       const f = e.features?.[0];
@@ -194,6 +213,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         type: 'Feature' as const,
         geometry: { type: 'Point' as const, coordinates: r.pos },
         properties: {
+          label: `Restaurant · ${r.name}`,
           html: `<b>${r.name}</b><br/><span class="popup-muted">${r.area} · prep ~${Math.round(r.prepMeanMin)} min</span>`,
         },
       })),
@@ -224,10 +244,19 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
               : status === 'onTheWay'
                 ? `on the way to the customer`
                 : `delivered`;
+        const shortStatus =
+          status === 'waiting'
+            ? 'waiting'
+            : status === 'cooking'
+              ? 'cooking'
+              : status === 'onTheWay'
+                ? 'on the way'
+                : 'delivered';
         orderFeatures.push({
           type: 'Feature',
           geometry: { type: 'Point', coordinates: status === 'done' || status === 'onTheWay' ? o.cust : o.resto.pos },
           properties: {
+            label: `Order #${o.id} · ${shortStatus}`,
             color: ORDER_COLORS[status],
             status,
             html: `<b>Order #${o.id}</b><br/><span class="popup-muted">${o.resto.name} · ${info}<br/>` +
@@ -249,6 +278,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
           type: 'Feature',
           geometry: { type: 'Point', coordinates: pos },
           properties: {
+            label: `Courier #${c.id} · ${active ? (active.kind === 'pickup' ? 'riding' : 'delivering') : 'idle'}`,
             html: `<b>Courier #${c.id}</b><br/><span class="popup-muted">${active ? (active.kind === 'pickup' ? 'riding to restaurant' : 'delivering') : 'idle'}</span>`,
           },
         });
@@ -258,7 +288,7 @@ export const MapView = forwardRef<MapViewHandle, Props>(function MapView(
         courierFeatures.push({
           type: 'Feature',
           geometry: { type: 'Point', coordinates: c.home },
-          properties: { html: `<b>Courier #${c.id}</b>` },
+          properties: { label: `Courier #${c.id} · idle`, html: `<b>Courier #${c.id}</b>` },
         });
     }
     (map.getSource('couriers') as GeoJSONSource).setData({ type: 'FeatureCollection', features: courierFeatures });
